@@ -20,12 +20,14 @@ import { Play, RotateCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { FilterType, ReconMethod } from '@/types';
 import { Rotate3D } from 'lucide-react';
+import { sartReconstruction } from '@/lib/sart';
 
 export function ReconstructionStep() {
   const {
-    sinogramData, numAngles, numDetectors, phantomSize,
+    sinogramData, projectionAnglesDeg, numAngles, numDetectors, phantomSize, scanAngleRangeDeg,
     filterType, setFilterType, artIterations, setArtIterations,
-    artLambda, setArtLambda, setReconstruction, reconstructions,
+    artLambda, setArtLambda, sartIterations, setSartIterations,
+    sartLambda, setSartLambda, setReconstruction, reconstructions,
     setStepStatus,
   } = useCTStore();
 
@@ -42,8 +44,8 @@ export function ReconstructionStep() {
     await new Promise(r => setTimeout(r, 50));
     const start = performance.now();
     const data = method === 'bp'
-      ? simpleBackProjection(sinogramData, numAngles, numDetectors, phantomSize)
-      : filteredBackProjection(sinogramData, numAngles, numDetectors, phantomSize, filterType);
+      ? simpleBackProjection(sinogramData, numAngles, numDetectors, phantomSize, scanAngleRangeDeg, projectionAnglesDeg)
+      : filteredBackProjection(sinogramData, numAngles, numDetectors, phantomSize, filterType, scanAngleRangeDeg, projectionAnglesDeg);
     const timeMs = performance.now() - start;
     setReconstruction(method, { data, size: phantomSize, timeMs, method });
     setStepStatus(3, 'done');
@@ -52,7 +54,7 @@ export function ReconstructionStep() {
     // Play animation separately (visual only)
     if (method === 'bp') bpViewerRef.current?.play();
     else fbpViewerRef.current?.play();
-  }, [sinogramData, numAngles, numDetectors, phantomSize, filterType,
+  }, [sinogramData, projectionAnglesDeg, numAngles, numDetectors, phantomSize, filterType, scanAngleRangeDeg,
       setReconstruction, setStepStatus]);
 
   const runReconstruction = useCallback(async (method: ReconMethod) => {
@@ -66,16 +68,19 @@ export function ReconstructionStep() {
 
     switch (method) {
       case 'bp':
-        data = simpleBackProjection(sinogramData, numAngles, numDetectors, phantomSize);
+        data = simpleBackProjection(sinogramData, numAngles, numDetectors, phantomSize, scanAngleRangeDeg, projectionAnglesDeg);
         break;
       case 'fbp':
-        data = filteredBackProjection(sinogramData, numAngles, numDetectors, phantomSize, filterType);
+        data = filteredBackProjection(sinogramData, numAngles, numDetectors, phantomSize, filterType, scanAngleRangeDeg, projectionAnglesDeg);
         break;
       case 'fourier':
-        data = fourierReconstruction(sinogramData, numAngles, numDetectors, phantomSize);
+        data = fourierReconstruction(sinogramData, numAngles, numDetectors, phantomSize, scanAngleRangeDeg, projectionAnglesDeg);
         break;
       case 'art':
-        data = artReconstruction(sinogramData, numAngles, numDetectors, phantomSize, artIterations, artLambda);
+        data = artReconstruction(sinogramData, numAngles, numDetectors, phantomSize, artIterations, artLambda, scanAngleRangeDeg, projectionAnglesDeg);
+        break;
+      case 'sart':
+        data = sartReconstruction(sinogramData, numAngles, numDetectors, phantomSize, sartIterations, sartLambda, scanAngleRangeDeg, projectionAnglesDeg);
         break;
       default:
         data = new Float32Array(phantomSize * phantomSize);
@@ -87,7 +92,7 @@ export function ReconstructionStep() {
     setIsRunning(prev => ({ ...prev, [method]: false }));
     setStepStatus(3, 'done');
     setStepStatus(4, 'ready');
-  }, [sinogramData, numAngles, numDetectors, phantomSize, filterType, artIterations, artLambda,
+  }, [sinogramData, projectionAnglesDeg, numAngles, numDetectors, phantomSize, filterType, artIterations, artLambda, scanAngleRangeDeg,
       setReconstruction, setStepStatus]);
 
   const resetMethod = useCallback((method: string) => {
@@ -102,6 +107,7 @@ export function ReconstructionStep() {
     fbp: { border: 'hsl(187, 94%, 43%)', badge: 'bg-algo-fbp' },
     fourier: { border: 'hsl(263, 70%, 58%)', badge: 'bg-algo-fourier' },
     art: { border: 'hsl(152, 69%, 43%)', badge: 'bg-algo-art' },
+    sart: { border: 'hsl(200, 70%, 50%)', badge: 'bg-algo-sart' },
   };
 
   return (
@@ -122,7 +128,7 @@ export function ReconstructionStep() {
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReconMethod)}>
-        <TabsList className="grid w-full grid-cols-4 bg-muted/30">
+        <TabsList className="grid w-full grid-cols-5 bg-muted/30">
           <TabsTrigger value="bp" className="text-xs gap-1">
             <span className="w-2 h-2 rounded-full bg-algo-bp" /> BP
           </TabsTrigger>
@@ -134,6 +140,9 @@ export function ReconstructionStep() {
           </TabsTrigger>
           <TabsTrigger value="art" className="text-xs gap-1">
             <span className="w-2 h-2 rounded-full bg-algo-art" /> ART
+          </TabsTrigger>
+          <TabsTrigger value="sart" className="text-xs gap-1">
+            <span className="w-2 h-2 rounded-full bg-algo-sart" /> SART
           </TabsTrigger>
         </TabsList>
 
@@ -165,6 +174,8 @@ export function ReconstructionStep() {
               numAngles={numAngles}
               numDetectors={numDetectors}
               phantomSize={phantomSize}
+              angleRangeDeg={scanAngleRangeDeg}
+              projectionAnglesDeg={projectionAnglesDeg}
               label="Back Projection"
               borderColor={algoStyles.bp.border}
               forceData={reconstructions.bp?.data ?? null}
@@ -218,6 +229,8 @@ export function ReconstructionStep() {
               numAngles={numAngles}
               numDetectors={numDetectors}
               phantomSize={phantomSize}
+              angleRangeDeg={scanAngleRangeDeg}
+              projectionAnglesDeg={projectionAnglesDeg}
               filterType={filterType}
               label="Filtered Back Projection"
               borderColor={algoStyles.fbp.border}
@@ -276,7 +289,7 @@ export function ReconstructionStep() {
                   <Slider
                     value={[artIterations]}
                     onValueChange={([v]) => setArtIterations(v)}
-                    min={1} max={50} step={1}
+                    min={1} max={300} step={1}
                   />
                 </div>
                 <div>
@@ -287,7 +300,7 @@ export function ReconstructionStep() {
                   <Slider
                     value={[artLambda * 100]}
                     onValueChange={([v]) => setArtLambda(v / 100)}
-                    min={10} max={200} step={5}
+                    min={10} max={300} step={5}
                   />
                 </div>
               </div>
@@ -309,8 +322,59 @@ export function ReconstructionStep() {
               data={reconstructions.art?.data ?? null}
               width={phantomSize}
               height={phantomSize}
-              label="ART/SART Reconstruction"
+              label="ART Reconstruction"
               borderColor={algoStyles.art.border}
+            />
+          </div>
+        {/* SART */}
+        </TabsContent>
+        <TabsContent value="sart" className="mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="glass-panel p-4 space-y-3">
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">Iterations</span>
+                    <span className="font-mono text-primary">{sartIterations}</span>
+                  </div>
+                  <Slider
+                    value={[sartIterations]}
+                    onValueChange={([v]) => setSartIterations(v)}
+                    min={1} max={200} step={1}
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">Relaxation λ</span>
+                    <span className="font-mono text-primary">{sartLambda.toFixed(2)}</span>
+                  </div>
+                  <Slider
+                    value={[sartLambda * 100]}
+                    onValueChange={([v]) => setSartLambda(v / 100)}
+                    min={10} max={200} step={5}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => runReconstruction('sart')} disabled={isRunning.sart || !sinogramData} className="gap-1.5">
+                  <Play className="h-4 w-4" /> {isRunning.sart ? 'Running...' : 'Run SART'}
+                </Button>
+                <Button variant="ghost" onClick={() => resetMethod('sart')} className="gap-1.5">
+                  <RotateCcw className="h-4 w-4" /> Reset
+                </Button>
+              </div>
+              {reconstructions.sart && (
+                <Badge className={`${algoStyles.sart.badge} text-primary-foreground font-mono`}>
+                  {reconstructions.sart.timeMs.toFixed(0)} ms
+                </Badge>
+              )}
+            </div>
+            <CanvasViewer
+              data={reconstructions.sart?.data ?? null}
+              width={phantomSize}
+              height={phantomSize}
+              label="SART Reconstruction"
+              borderColor={algoStyles.sart.border}
             />
           </div>
         </TabsContent>

@@ -12,6 +12,8 @@ interface AnimatedReconstructionViewerProps {
   numAngles: number;
   numDetectors: number;
   phantomSize: number;
+  angleRangeDeg?: number;
+  projectionAnglesDeg?: Float32Array | null;
   filterType?: FilterType; 
   label?: string;
   borderColor?: string;
@@ -31,6 +33,8 @@ export const AnimatedReconstructionViewer = forwardRef<AnimatedReconViewerRef, A
   numAngles,
   numDetectors,
   phantomSize,
+  angleRangeDeg = 180,
+  projectionAnglesDeg,
   filterType,
   label,
   borderColor,
@@ -60,7 +64,7 @@ export const AnimatedReconstructionViewer = forwardRef<AnimatedReconViewerRef, A
       setCurrentRecon(sinogram ? new Float32Array(phantomSize * phantomSize) : null);
       setCurrentAngle(0);
       if (sinogram) {
-        generatorRef.current = backProjectionGenerator(sinogram, numAngles, numDetectors, phantomSize, filterType);
+        generatorRef.current = backProjectionGenerator(sinogram, numAngles, numDetectors, phantomSize, filterType, angleRangeDeg, projectionAnglesDeg);
       }
       setIsPlaying(true);
     },
@@ -76,10 +80,10 @@ export const AnimatedReconstructionViewer = forwardRef<AnimatedReconViewerRef, A
     setCurrentRecon(forceDataRef.current || (sinogram ? new Float32Array(phantomSize * phantomSize) : null));
     setCurrentAngle(0);
     if (sinogram) {
-      generatorRef.current = backProjectionGenerator(sinogram, numAngles, numDetectors, phantomSize, filterType);
+      generatorRef.current = backProjectionGenerator(sinogram, numAngles, numDetectors, phantomSize, filterType, angleRangeDeg, projectionAnglesDeg);
     }
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
-  }, [sinogram, numAngles, numDetectors, phantomSize, filterType]); // forceData intentionally via ref
+  }, [sinogram, numAngles, numDetectors, phantomSize, filterType, angleRangeDeg, projectionAnglesDeg]); // forceData intentionally via refrceData intentionally via ref
 
   useEffect(() => {
     reset();
@@ -210,7 +214,7 @@ export const AnimatedReconstructionViewer = forwardRef<AnimatedReconViewerRef, A
                 setCurrentRecon(sinogram ? new Float32Array(phantomSize * phantomSize) : null);
                 setCurrentAngle(0);
                 if (sinogram) {
-                  generatorRef.current = backProjectionGenerator(sinogram, numAngles, numDetectors, phantomSize, filterType);
+                  generatorRef.current = backProjectionGenerator(sinogram, numAngles, numDetectors, phantomSize, filterType, angleRangeDeg, projectionAnglesDeg);
                 }
                 setIsPlaying(true);
               } else {

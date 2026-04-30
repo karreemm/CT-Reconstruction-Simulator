@@ -1,4 +1,11 @@
-export function fft1d(real: Float32Array, imag: Float32Array, n: number, inverse: boolean = false): void {
+import { getProjectionThetaRad, toProjectorMathTheta } from "./angles";
+
+export function fft1d(
+  real: Float32Array,
+  imag: Float32Array,
+  n: number,
+  inverse: boolean = false,
+): void {
   let j = 0;
   for (let i = 0; i < n - 1; i++) {
     if (i < j) {
@@ -6,7 +13,10 @@ export function fft1d(real: Float32Array, imag: Float32Array, n: number, inverse
       [imag[i], imag[j]] = [imag[j], imag[i]];
     }
     let k = n >> 1;
-    while (k <= j) { j -= k; k >>= 1; }
+    while (k <= j) {
+      j -= k;
+      k >>= 1;
+    }
     j += k;
   }
 
@@ -14,13 +24,17 @@ export function fft1d(real: Float32Array, imag: Float32Array, n: number, inverse
   for (let len = 2; len <= n; len <<= 1) {
     const halfLen = len >> 1;
     const angle = (dir * 2 * Math.PI) / len;
-    const wR = Math.cos(angle), wI = Math.sin(angle);
+    const wR = Math.cos(angle),
+      wI = Math.sin(angle);
 
     for (let i = 0; i < n; i += len) {
-      let tR = 1, tI = 0;
+      let tR = 1,
+        tI = 0;
       for (let k = 0; k < halfLen; k++) {
-        const idx1 = i + k, idx2 = i + k + halfLen;
-        const uR = real[idx1], uI = imag[idx1];
+        const idx1 = i + k,
+          idx2 = i + k + halfLen;
+        const uR = real[idx1],
+          uI = imag[idx1];
         const vR = real[idx2] * tR - imag[idx2] * tI;
         const vI = real[idx2] * tI + imag[idx2] * tR;
         real[idx1] = uR + vR;
@@ -35,11 +49,19 @@ export function fft1d(real: Float32Array, imag: Float32Array, n: number, inverse
   }
 
   if (inverse) {
-    for (let i = 0; i < n; i++) { real[i] /= n; imag[i] /= n; }
+    for (let i = 0; i < n; i++) {
+      real[i] /= n;
+      imag[i] /= n;
+    }
   }
 }
 
-export function fft2d(real: Float32Array, imag: Float32Array, size: number, inverse: boolean = false): void {
+export function fft2d(
+  real: Float32Array,
+  imag: Float32Array,
+  size: number,
+  inverse: boolean = false,
+): void {
   const rowR = new Float32Array(size);
   const rowI = new Float32Array(size);
 
@@ -80,7 +102,9 @@ export function fourierReconstruction(
   sinogram: Float32Array,
   numAngles: number,
   numDetectors: number,
-  outputSize: number
+  outputSize: number,
+  angleRangeDeg: number = 180,
+  projectionAnglesDeg?: Float32Array | null,
 ): Float32Array {
   const fftSize = nextPow2(Math.max(numDetectors, outputSize));
   const freqReal = new Float32Array(fftSize * fftSize);
@@ -90,8 +114,15 @@ export function fourierReconstruction(
   const center = fftSize / 2;
 
   for (let ai = 0; ai < numAngles; ai++) {
-    const theta = (ai * Math.PI) / numAngles;
-    const cosT = Math.cos(theta), sinT = Math.sin(theta);
+    const theta = getProjectionThetaRad(
+      ai,
+      numAngles,
+      angleRangeDeg,
+      projectionAnglesDeg,
+    );
+    const mathTheta = toProjectorMathTheta(theta);
+    const cosT = Math.cos(mathTheta),
+      sinT = Math.sin(mathTheta);
 
     const projR = new Float32Array(fftSize);
     const projI = new Float32Array(fftSize);
@@ -130,14 +161,19 @@ export function fourierReconstruction(
   const cropOffset = Math.floor((fftSize - outputSize) / 2);
   for (let j = 0; j < outputSize; j++) {
     for (let i = 0; i < outputSize; i++) {
-      result[j * outputSize + i] = freqReal[(j + cropOffset) * fftSize + i + cropOffset];
+      result[j * outputSize + i] =
+        freqReal[(j + cropOffset) * fftSize + i + cropOffset];
     }
   }
 
   return result;
 }
 
-function fftShift2D(real: Float32Array, imag: Float32Array, size: number): void {
+function fftShift2D(
+  real: Float32Array,
+  imag: Float32Array,
+  size: number,
+): void {
   const half = size / 2;
   for (let j = 0; j < half; j++) {
     for (let i = 0; i < half; i++) {

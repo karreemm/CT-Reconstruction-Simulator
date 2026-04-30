@@ -1,11 +1,11 @@
 import { getProjectionThetaRad, toProjectorMathTheta } from "./angles";
 
-export function artReconstruction(
+export function sartReconstruction(
   sinogram: Float32Array,
   numAngles: number,
   numDetectors: number,
   outputSize: number,
-  iterations: number = 10,
+  iterations: number = 40,
   lambda: number = 0.5,
   angleRangeDeg: number = 180,
   projectionAnglesDeg?: Float32Array | null,
@@ -27,6 +27,10 @@ export function artReconstruction(
       const mathTheta = toProjectorMathTheta(theta);
       const cosT = Math.cos(mathTheta);
       const sinT = Math.sin(mathTheta);
+
+      // Create accumulation buffers for the current angle
+      const correctionBuffer = new Float32Array(outputSize * outputSize);
+      const weightBuffer = new Float32Array(outputSize * outputSize);
 
       for (let di = 0; di < numDetectors; di++) {
         const measured = sinogram[ai * numDetectors + di];
@@ -50,10 +54,23 @@ export function artReconstruction(
         }
 
         if (rayLen > 0) {
-          const correction = (lambda * (measured - projected)) / rayLen;
-          for (const { idx } of rayPixels) {
-            recon[idx] += correction;
+          // Calculate the raw correction for this specific ray
+          const rayCorrection = (measured - projected) / rayLen;
+
+          // Accumulate corrections, DO NOT update recon yet
+          for (const { idx, weight } of rayPixels) {
+            correctionBuffer[idx] += rayCorrection;
+            weightBuffer[idx] += weight * weight; // Track how many rays hit this pixel
           }
+        }
+      }
+
+      // Apply simultaneous update after all rays in the angle are processed
+      for (let i = 0; i < recon.length; i++) {
+        // Only update pixels that were actually hit by rays in this angle
+        if (weightBuffer[i] > 0) {
+          // Average the accumulated corrections and apply the lambda relaxation factor
+          recon[i] += lambda * (correctionBuffer[i] / weightBuffer[i]);
         }
       }
     }

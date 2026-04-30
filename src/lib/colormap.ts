@@ -1,4 +1,4 @@
-import type { ColormapName } from '@/types';
+import type { ColormapName } from "@/types";
 
 type RGB = [number, number, number];
 
@@ -72,13 +72,15 @@ export function applyColormap(
   data: Float32Array,
   width: number,
   height: number,
-  colormapName: ColormapName
+  colormapName: ColormapName,
+  flipVertical = false,
 ): ImageData {
   const lut = COLORMAPS[colormapName];
   const imageData = new ImageData(width, height);
   const pixels = imageData.data;
 
-  let min = Infinity, max = -Infinity;
+  let min = Infinity,
+    max = -Infinity;
   const len = width * height;
   for (let i = 0; i < len; i++) {
     if (data[i] < min) min = data[i];
@@ -86,12 +88,20 @@ export function applyColormap(
   }
   const range = max - min || 1;
 
-  for (let i = 0; i < len; i++) {
-    const val = Math.max(0, Math.min(255, Math.round(((data[i] - min) / range) * 255)));
-    pixels[i * 4] = lut[val * 3];
-    pixels[i * 4 + 1] = lut[val * 3 + 1];
-    pixels[i * 4 + 2] = lut[val * 3 + 2];
-    pixels[i * 4 + 3] = 255;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const sourceY = flipVertical ? height - 1 - y : y;
+      const sourceIndex = sourceY * width + x;
+      const targetIndex = y * width + x;
+      const val = Math.max(
+        0,
+        Math.min(255, Math.round(((data[sourceIndex] - min) / range) * 255)),
+      );
+      pixels[targetIndex * 4] = lut[val * 3];
+      pixels[targetIndex * 4 + 1] = lut[val * 3 + 1];
+      pixels[targetIndex * 4 + 2] = lut[val * 3 + 2];
+      pixels[targetIndex * 4 + 3] = 255;
+    }
   }
 
   return imageData;

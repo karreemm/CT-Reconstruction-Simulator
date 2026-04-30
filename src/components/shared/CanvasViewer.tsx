@@ -1,9 +1,9 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
-import { applyColormap } from '@/lib/colormap';
-import { useCTStore } from '@/store/ctStore';
-import { Download, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import type { ColormapName } from '@/types';
+import { useRef, useEffect, useCallback, useState } from "react";
+import { applyColormap } from "@/lib/colormap";
+import { useCTStore } from "@/store/ctStore";
+import { Download, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { ColormapName } from "@/types";
 
 interface CanvasViewerProps {
   data: Float32Array | null;
@@ -15,6 +15,7 @@ interface CanvasViewerProps {
   borderColor?: string;
   showControls?: boolean;
   interactive?: boolean;
+  flipVertical?: boolean;
   onMouseDown?: (e: React.MouseEvent<HTMLCanvasElement>) => void;
   onMouseMove?: (e: React.MouseEvent<HTMLCanvasElement>) => void;
   onMouseUp?: (e: React.MouseEvent<HTMLCanvasElement>) => void;
@@ -26,11 +27,12 @@ export function CanvasViewer({
   width,
   height,
   label,
-  className = '',
+  className = "",
   colormap: colormapOverride,
   borderColor,
   showControls = true,
   interactive = false,
+  flipVertical = false,
   onMouseDown,
   onMouseMove,
   onMouseUp,
@@ -44,23 +46,29 @@ export function CanvasViewer({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !data) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     canvas.width = width;
     canvas.height = height;
 
-    const imageData = applyColormap(data, width, height, colormap);
+    const imageData = applyColormap(
+      data,
+      width,
+      height,
+      colormap,
+      flipVertical,
+    );
     ctx.putImageData(imageData, 0, 0);
-  }, [data, width, height, colormap]);
+  }, [data, width, height, colormap, flipVertical]);
 
   const handleExport = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const url = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
+    const url = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `${label || 'canvas'}.png`;
+    a.download = `${label || "canvas"}.png`;
     a.click();
   }, [label]);
 
@@ -73,18 +81,21 @@ export function CanvasViewer({
           {label}
         </div>
       )}
-      <div className="relative overflow-hidden rounded-md bg-background/50" style={borderStyle}>
+      <div
+        className="relative overflow-hidden rounded-md bg-background/50"
+        style={borderStyle}
+      >
         <canvas
           ref={canvasRef}
           style={{
-            width: '100%',
-            height: 'auto',
-            imageRendering: 'pixelated',
+            width: "100%",
+            height: "auto",
+            imageRendering: "pixelated",
             transform: `scale(${zoom})`,
-            transformOrigin: 'center',
-            cursor: interactive ? 'crosshair' : 'default',
+            transformOrigin: "center",
+            cursor: interactive ? "crosshair" : "default",
           }}
-          className={`block ${interactive ? 'touch-none' : ''}`}
+          className={`block ${interactive ? "touch-none" : ""}`}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
@@ -123,7 +134,12 @@ export function CanvasViewer({
             <RotateCcw className="h-3.5 w-3.5" />
           </Button>
           <div className="flex-1" />
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleExport}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={handleExport}
+          >
             <Download className="h-3.5 w-3.5" />
           </Button>
         </div>

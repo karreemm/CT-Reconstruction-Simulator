@@ -3,7 +3,7 @@ export type PhantomType = 'shepp-logan' | 'geometric' | 'resolution' | 'custom';
 export type ColormapName = 'grayscale' | 'hot' | 'viridis' | 'jet' | 'plasma';
 export type AnimationSpeed = 'slow' | 'medium' | 'fast' | 'instant';
 export type FilterType = 'ram-lak' | 'shepp-logan' | 'cosine' | 'hamming' | 'hann';
-export type ReconMethod = 'bp' | 'fbp' | 'fourier' | 'art';
+export type ReconMethod = 'bp' | 'fbp' | 'fourier' | 'art' | 'sart';
 
 export interface ReconResult {
   data: Float32Array;
@@ -24,13 +24,15 @@ export const ALGO_COLORS: Record<ReconMethod, string> = {
   fbp: 'hsl(187, 94%, 43%)',
   fourier: 'hsl(263, 70%, 58%)',
   art: 'hsl(152, 69%, 43%)',
+  sart: 'hsl(200, 70%, 50%)',
 };
 
 export const ALGO_NAMES: Record<ReconMethod, string> = {
   bp: 'Back Projection',
   fbp: 'Filtered Back Projection',
   fourier: 'Fourier Method',
-  art: 'ART/SART',
+  art: 'ART',
+  sart: 'SART',
 };
 
 export const ALGO_CSS: Record<ReconMethod, string> = {
@@ -38,4 +40,5 @@ export const ALGO_CSS: Record<ReconMethod, string> = {
   fbp: 'algo-fbp',
   fourier: 'algo-fourier',
   art: 'algo-art',
+  sart: 'algo-sart',
 };

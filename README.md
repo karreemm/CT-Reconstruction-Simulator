@@ -20,18 +20,22 @@ Define the object to be "scanned" before any simulation begins.
 - **Shepp-Logan Phantom** — The standard benchmark image used to test CT algorithms, composed of 10 overlapping ellipses simulating human tissue densities.
 - **Geometric Phantom** — A simple geometric shape for quick, illustrative tests.
 - **Resolution Phantom** — A phantom designed to evaluate spatial resolution limits.
-- **Custom Draw Mode** — Draw your own phantom freehand on a 256×256 canvas with adjustable brush size, eraser, undo history, and canvas clear.
+- **Custom Draw Mode** — Draw your own phantom freehand.
 
 ---
 
 ### 🟨 Step 2 — X-ray Projection (Radon Transform)
 Simulate the physical X-ray scanning process.
 
-- Configurable **number of angles** (18–360) and **number of detectors** (64–512).
+- Configurable **number of angles** (1–720) and **number of detectors** (64–512).
+- Configurable **scan angle range** (1–360°) to simulate partial or full rotation scans.
+- **Non-Uniform Angular Sampling** toggle for irregular projection spacing.
 - Real-time **animated projection viewer** showing the X-ray beam sweeping across the phantom.
 - Live **sinogram generation** — watch the sinogram build up angle by angle as the scan progresses.
 - Optional **Gaussian noise injection** with adjustable SNR (10–60 dB) to simulate real scanner noise.
-- Scannable progress bar displaying the current angle being processed.
+- Configurable **animation speed** (Slow / Medium / Fast / Instant).
+- Progress bar displaying the current angle being processed.
+
 ---
 
 ### 🟧 Step 3 — Sinogram Viewer
@@ -40,14 +44,15 @@ Inspect the raw sinogram data produced from the projection step before moving to
 ---
 
 ### 🟥 Step 4 — Reconstruction Algorithms
-Apply four distinct reconstruction algorithms to recover the image from the sinogram.
+Apply five distinct reconstruction algorithms to recover the image from the sinogram.
 
 | Algorithm | Description |
 |-----------|-------------|
 | **Back Projection (BP)** | Smears each projection back across image space. Fast but produces blurry results without filtering. Features a step-by-step animated build-up. |
 | **Filtered Back Projection (FBP)** | Applies a frequency-domain filter before back-projection. Supports **Ram-Lak (Ramp)**, **Shepp-Logan**, **Cosine**, **Hamming**, and **Hann** filters. Features an animated reconstruction viewer. |
 | **Fourier Reconstruction** | Uses the **Fourier Slice Theorem** — the 1D FFT of each projection populates a radial line in 2D frequency space, followed by 2D IFFT to recover the image. |
-| **ART (Algebraic Reconstruction Technique)** | An iterative method with configurable **iterations** (1–50) and **relaxation factor λ**. Trades speed for convergence quality. |
+| **ART (Algebraic Reconstruction Technique)** | An iterative ray-by-ray correction method with configurable **iterations** (1–300) and **relaxation factor λ** (0.10–3.00). Trades speed for convergence quality. |
+| **SART (Simultaneous ART)** | A simultaneous variant of ART that accumulates corrections across all rays of an angle before updating. Configurable **iterations** (1–200) and **relaxation factor λ** (0.10–2.00). Offers better convergence per iteration than standard ART. |
 
 ---
 
@@ -60,7 +65,6 @@ Compare all executed reconstructions side by side with quantitative metrics.
   - **PSNR** — Peak Signal-to-Noise Ratio (dB)
   - **SSIM** — Structural Similarity Index
   - **Time** — Execution time in milliseconds
-- **Interactive bar chart** (Recharts) comparing PSNR, SSIM, and SNR across all algorithms with animated bars and a custom glassmorphic tooltip.
 ---
 
 ## Tech Stack
@@ -70,10 +74,15 @@ Compare all executed reconstructions side by side with quantitative metrics.
 | **Framework** | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) |
 | **Build Tool** | [Vite](https://vitejs.dev/) |
 | **Styling** | [Tailwind CSS v4](https://tailwindcss.com/) |
-| **UI Components** | [shadcn/ui](https://ui.shadcn.com/) |
-| **Animations** | [Motion](https://www.framer.com/motion/) |
+| **UI Components** | [shadcn/ui](https://ui.shadcn.com/) + [Radix UI](https://www.radix-ui.com/) |
+| **Icons** | [Lucide React](https://lucide.dev/) + [Font Awesome](https://fontawesome.com/) |
+| **Animations** | [Framer Motion](https://www.framer.com/motion/) |
 | **State Management** | [Zustand](https://zustand-demo.pmnd.rs/) |
 | **Charts** | [Recharts](https://recharts.org/) |
+| **Routing** | [React Router v6](https://reactrouter.com/) |
+| **Theming** | [next-themes](https://github.com/pacocoursey/next-themes) |
+| **Notifications** | [Sonner](https://sonner.emilkowal.ski/) |
+
 ---
 
 ## Algorithms Implemented (Pure TypeScript, No Dependencies)
@@ -84,7 +93,8 @@ All CT math is implemented from scratch in the browser:
 - **Back Projection** — simple and filtered, with frequency-domain convolution
 - **FBP Filters** — Ram-Lak, Shepp-Logan, Cosine, Hamming, Hann
 - **Fourier Reconstruction** — via the Fourier Slice Theorem + 2D IFFT
-- **ART** — iterative algebraic solver with configurable relaxation
+- **ART** — iterative ray-by-ray algebraic solver with configurable relaxation
+- **SART** — simultaneous algebraic reconstruction with per-angle batch updates
 - **Image Quality Metrics** — RMSE, PSNR, SSIM, SNR
 
 ---
@@ -93,7 +103,7 @@ All CT math is implemented from scratch in the browser:
 
 ```bash
 # Clone the repository
-git clone https://github.com/karreemm/CT-Reconstruction-Simulator.git
+git clone https://github.com/Youssef-Abo-El-Ela/CT-Reconstruction-Simulator.git
 cd CT-Reconstruction-Simulator
 
 # Install dependencies
@@ -103,4 +113,4 @@ npm install
 npm run dev
 ```
 
-Then open [http://localhost:8000](http://localhost:8000) in your browser.
+Then open [http://localhost:8080](http://localhost:8080) in your browser.
