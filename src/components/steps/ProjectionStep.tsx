@@ -17,6 +17,12 @@ import { Play, Square, Info, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { Scan } from "lucide-react";
 
+// Resolves jittery 5ms timers by falling back to rAF for near-zero delays
+const sleep = (ms: number): Promise<void> =>
+  ms <= 8
+    ? new Promise((r) => requestAnimationFrame(() => r()))
+    : new Promise((r) => setTimeout(r, ms));
+
 export function ProjectionStep() {
   const {
     phantomData,
@@ -49,55 +55,89 @@ export function ProjectionStep() {
   } = useCTStore();
 
   const [isScanning, setIsScanning] = useState(false);
+
+  // cancelRef: signals the loop to stop
   const cancelRef = useRef(false);
+
+  // scanParamsRef: freezes all scan parameters at the moment Scan is pressed.
+  // This means scroll-triggered re-renders cannot stale-close or interfere with
+  // the running loop — it reads exclusively from this snapshot.
+  const scanParamsRef = useRef<{
+    numAngles: number;
+    numDetectors: number;
+    scanAngleRangeDeg: number;
+    useNonUniformAngularSampling: boolean;
+    noiseEnabled: boolean;
+    noiseSNR: number;
+    phantomData: Float32Array;
+    phantomSize: number;
+    animationSpeed: string;
+  } | null>(null);
 
   const runProjection = useCallback(async () => {
     if (!phantomData) return;
+
+    // Freeze all params at scan start — immune to any re-renders during the scan
+    scanParamsRef.current = {
+      numAngles,
+      numDetectors,
+      scanAngleRangeDeg,
+      useNonUniformAngularSampling,
+      noiseEnabled,
+      noiseSNR,
+      phantomData,
+      phantomSize,
+      animationSpeed,
+    };
+
     setIsScanning(true);
     cancelRef.current = false;
     setStepStatus(1, "running");
 
-    const sinogram = new Float32Array(numAngles * numDetectors);
-    const projectionAngles = buildProjectionAnglesDeg(
-      numAngles,
-      scanAngleRangeDeg,
-      useNonUniformAngularSampling,
-    );
+    const {
+      numAngles: na,
+      numDetectors: nd,
+      scanAngleRangeDeg: sar,
+      useNonUniformAngularSampling: nuas,
+      noiseEnabled: ne,
+      noiseSNR: snr,
+      phantomData: pd,
+      phantomSize: ps,
+      animationSpeed: as,
+    } = scanParamsRef.current;
+
+    const sinogram = new Float32Array(na * nd);
+    const projectionAngles = buildProjectionAnglesDeg(na, sar, nuas);
     setLiveSinogramData(sinogram);
 
-    const delay =
-      animationSpeed === "fast" ? 5 : animationSpeed === "medium" ? 20 : 50;
+    const delay = as === "fast" ? 0 : as === "medium" ? 20 : 50;
 
-    for (let ai = 0; ai <= numAngles; ai++) {
+    for (let ai = 0; ai <= na; ai++) {
       if (cancelRef.current) break;
 
-      if (ai < numAngles) {
+      if (ai < na) {
         const theta = degToRad(projectionAngles[ai]);
-        const projection = radonTransformSingleAngle(
-          phantomData,
-          phantomSize,
-          numDetectors,
-          theta,
-        );
+        const projection = radonTransformSingleAngle(pd, ps, nd, theta);
 
-        if (noiseEnabled) {
-          addGaussianNoise(projection, noiseSNR);
+        if (ne) {
+          addGaussianNoise(projection, snr);
         }
 
-        for (let di = 0; di < numDetectors; di++) {
-          sinogram[ai * numDetectors + di] = projection[di];
+        for (let di = 0; di < nd; di++) {
+          sinogram[ai * nd + di] = projection[di];
         }
 
         setLiveSinogramData(new Float32Array(sinogram));
         setCurrentProjection(projection);
         setCurrentAngle(projectionAngles[ai]);
       } else {
-        setCurrentAngle(scanAngleRangeDeg);
+        setCurrentAngle(sar);
       }
 
-      setScanProgress((ai / numAngles) * 100);
+      setScanProgress((ai / na) * 100);
 
-      await new Promise((r) => setTimeout(r, delay));
+      // Use rAF-based sleep for fast mode to avoid jittery setTimeout(0) behaviour
+      await sleep(delay);
     }
 
     if (!cancelRef.current) {
@@ -109,14 +149,16 @@ export function ProjectionStep() {
 
     setIsScanning(false);
   }, [
+    // Only phantomData as a trigger guard — everything else is snapshotted in the ref
     phantomData,
-    phantomSize,
     numAngles,
     numDetectors,
+    scanAngleRangeDeg,
     useNonUniformAngularSampling,
     noiseEnabled,
     noiseSNR,
-    scanAngleRangeDeg,
+    phantomSize,
+    animationSpeed,
     setSinogramData,
     setStepStatus,
     setScanProgress,
@@ -124,7 +166,6 @@ export function ProjectionStep() {
     setLiveSinogramData,
     setCurrentProjection,
     setProjectionAnglesDeg,
-    animationSpeed,
   ]);
 
   const cancel = useCallback(() => {
@@ -166,6 +207,7 @@ export function ProjectionStep() {
                   min={1}
                   max={720}
                   step={1}
+                  disabled={isScanning}
                 />
               </div>
 
@@ -180,6 +222,7 @@ export function ProjectionStep() {
                   min={1}
                   max={360}
                   step={1}
+                  disabled={isScanning}
                 />
               </div>
 
@@ -194,6 +237,7 @@ export function ProjectionStep() {
                   min={64}
                   max={512}
                   step={1}
+                  disabled={isScanning}
                 />
               </div>
 
@@ -204,6 +248,7 @@ export function ProjectionStep() {
                 <Switch
                   checked={useNonUniformAngularSampling}
                   onCheckedChange={setUseNonUniformAngularSampling}
+                  disabled={isScanning}
                 />
               </div>
 
@@ -214,6 +259,7 @@ export function ProjectionStep() {
                 <Switch
                   checked={noiseEnabled}
                   onCheckedChange={setNoiseEnabled}
+                  disabled={isScanning}
                 />
               </div>
 
@@ -231,6 +277,7 @@ export function ProjectionStep() {
                     min={10}
                     max={60}
                     step={1}
+                    disabled={isScanning}
                   />
                 </div>
               )}
@@ -295,7 +342,16 @@ export function ProjectionStep() {
         </div>
 
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex flex-col">
+          {/*
+            contain: "layout paint" — isolates this subtree from scroll-triggered
+            repaints in the rest of the page.
+            will-change: "transform" — promotes to its own GPU compositing layer
+            so scroll events in sibling elements never cause a repaint here.
+          */}
+          <div
+            className="flex flex-col"
+            style={{ contain: "layout paint", willChange: "transform" }}
+          >
             <AnimatedProjectionViewer
               phantomData={phantomData}
               phantomSize={phantomSize}
@@ -305,7 +361,10 @@ export function ProjectionStep() {
             />
           </div>
 
-          <div className="flex flex-col">
+          <div
+            className="flex flex-col"
+            style={{ contain: "layout paint", willChange: "transform" }}
+          >
             {(isScanning ? liveSinogramData : sinogramData) ? (
               <motion.div
                 initial={{ opacity: 0 }}
