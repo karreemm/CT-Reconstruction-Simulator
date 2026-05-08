@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { StepperNav } from "./StepperNav";
+import { StepperNav, STEPS } from "./StepperNav";
 import { useCTStore } from "@/store/ctStore";
 import { ColorMapSelector } from "@/components/shared/ColorMapSelector";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import {
   RotateCcw,
   PanelLeftClose,
   PanelLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   Select,
@@ -18,6 +19,7 @@ import {
 import type { AnimationSpeed } from "@/types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXRay } from "@fortawesome/free-solid-svg-icons";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -25,23 +27,32 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
-  const { colormap, setColormap, animationSpeed, setAnimationSpeed, resetAll } =
-    useCTStore();
+  const isMobile = useIsMobile();
+  const {
+    activeStep,
+    stepStatus,
+    setActiveStep,
+    colormap,
+    setColormap,
+    animationSpeed,
+    setAnimationSpeed,
+    resetAll,
+  } = useCTStore();
 
   useEffect(() => {
-    const checkMobile = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      if (mobile && sidebarOpen) {
-        setSidebarOpen(false);
-      }
-    };
+    if (isMobile && sidebarOpen) {
+      setSidebarOpen(false);
+    }
+  }, [isMobile]);
 
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
+  const nextStep = activeStep + 1;
+  const nextStepReady =
+    nextStep < STEPS.length && stepStatus[nextStep] !== "locked";
+
+  const goToNextStep = () => {
+    if (!nextStepReady) return;
+    setActiveStep(nextStep);
+  };
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -107,7 +118,7 @@ export function AppShell({ children }: AppShellProps) {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 w-full">
-        <header className="h-12 border-b border-border/30 flex items-center px-4 gap-3 bg-card/20 backdrop-blur-md shrink-0">
+        <header className="h-12 border-b border-border/30 flex items-center justify-between px-4 gap-3 bg-card/20 backdrop-blur-md shrink-0">
           <Button
             variant="ghost"
             size="icon"
@@ -120,7 +131,17 @@ export function AppShell({ children }: AppShellProps) {
               <PanelLeft className="h-4 w-4" />
             )}
           </Button>
-          <div className="flex-1" />
+          {isMobile && !sidebarOpen && nextStepReady && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8 text-xs gap-1.5 flex items-center"
+              onClick={goToNextStep}
+            >
+              Next: {STEPS[nextStep].label}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"

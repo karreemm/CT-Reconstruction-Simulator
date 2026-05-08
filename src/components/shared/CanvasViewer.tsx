@@ -20,6 +20,11 @@ interface CanvasViewerProps {
   onMouseMove?: (e: React.MouseEvent<HTMLCanvasElement>) => void;
   onMouseUp?: (e: React.MouseEvent<HTMLCanvasElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<HTMLCanvasElement>) => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
+  onPointerMove?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
+  onPointerUp?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
+  onPointerLeave?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
+  onPointerCancel?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
 }
 
 export function CanvasViewer({
@@ -37,6 +42,11 @@ export function CanvasViewer({
   onMouseMove,
   onMouseUp,
   onMouseLeave,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerLeave,
+  onPointerCancel,
 }: CanvasViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const globalColormap = useCTStore((s) => s.colormap);
@@ -100,6 +110,11 @@ export function CanvasViewer({
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
           onMouseLeave={onMouseLeave}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={onPointerLeave}
+          onPointerCancel={onPointerCancel}
         />
         {!data && (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
