@@ -5,7 +5,7 @@ export function sartReconstruction(
   numAngles: number,
   numDetectors: number,
   outputSize: number,
-  iterations: number = 40,
+  iterations: number = 10,
   lambda: number = 0.5,
   angleRangeDeg: number = 180,
   projectionAnglesDeg?: Float32Array | null,
